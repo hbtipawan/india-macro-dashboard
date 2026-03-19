@@ -129,38 +129,35 @@ ALL_MACRO = [
 # ═════════════════════════════════════════════════════════════════════════════
 #  DATA HELPERS
 # ═════════════════════════════════════════════════════════════════════════════
+# 1. Create a custom web session to disguise the app as a Chrome browser
+http_session = requests.Session()
+http_session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+})
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_price(ticker: str):
     try:
-        t = yf.Ticker(ticker)
-        fi = t.fast_info
-        return float(fi.last_price), float(fi.previous_close)
+        # Pass the disguised session to yfinance
+        t = yf.Ticker(ticker, session=http_session)
+        # Use history() instead of fast_info, as it bypasses cloud blocks much better
+        df = t.history(period="5d")
+        if not df.empty and len(df) >= 2:
+            last_price = float(df['Close'].iloc[-1])
+            prev_close = float(df['Close'].iloc[-2])
+            return last_price, prev_close
+        return None, None
     except Exception:
         return None, None
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     try:
-        df = yf.download(ticker, period=period, progress=False, auto_adjust=True)
+        # Pass the disguised session to the download function
+        df = yf.download(ticker, period=period, progress=False, auto_adjust=True, session=http_session)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         return df[["Close"]].dropna()
-    except Exception:
-        return pd.DataFrame()
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def world_bank(code: str, country: str = "IN") -> pd.DataFrame:
-    url = (f"https://api.worldbank.org/v2/country/{country}/indicator/{code}"
-           f"?format=json&per_page=50&mrv=35")
-    try:
-        r = requests.get(url, timeout=15)
-        raw = r.json()
-        if len(raw) > 1 and raw[1]:
-            df = pd.DataFrame(raw[1])[["date", "value"]].dropna()
-            df["date"] = pd.to_numeric(df["date"])
-            return df.sort_values("date").reset_index(drop=True)
-        return pd.DataFrame()
     except Exception:
         return pd.DataFrame()
 
