@@ -280,7 +280,16 @@ st.markdown("""
   </p>
 </div>
 """, unsafe_allow_html=True)
-
+# ═════════════════════════════════════════════════════════════════════════════
+#  SYSTEM HEALTH CHECK
+# ═════════════════════════════════════════════════════════════════════════════
+# We test the Nifty 50. If it returns None, the data feed is blocked.
+test_price, _ = get_price("^NSEI")
+if test_price is None:
+    st.error("""
+        **⚠️ Data Feed Interrupted:** Yahoo Finance is currently blocking requests or undergoing maintenance. 
+        The dashboard is displaying 'N/A' or cached data. Please reboot the app in a few minutes to request a new IP address.
+    """, icon="🚨")
 # ═════════════════════════════════════════════════════════════════════════════
 #  SECTION 1 ─ MARKET PULSE
 # ═════════════════════════════════════════════════════════════════════════════
