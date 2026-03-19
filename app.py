@@ -64,10 +64,15 @@ MARKET_TICKERS = {
     "USD/INR":      ("INR=X",      "₹",   True),
     "Brent Crude":  ("BZ=F",       "$",   True),
     "Gold (USD)":   ("GC=F",       "$",   True),
+    "Silver (USD)": ("SI=F",       "$",   True),
+    "Copper (USD)": ("HG=F",       "$",   False), # Dr. Copper = growth indicator
     "US 10Y Yield": ("^TNX",       "%",   True),
     "DXY":          ("DX-Y.NYB",   "",    True),
     "S&P 500":      ("^GSPC",      "pts", False),
+    "Nasdaq 100":   ("^NDX",       "pts", False), # Tech & Risk proxy
+    "Russell 2000": ("^RUT",       "pts", False), # Global small-cap risk proxy
     "MSCI EM ETF":  ("EEM",        "$",   False),
+    "Bitcoin":      ("BTC-USD",    "$",   False), # Pure liquidity indicator
 }
 
 SECTOR_TICKERS = {
@@ -79,6 +84,10 @@ SECTOR_TICKERS = {
     "Nifty Pharma": "^CNXPHARMA",
     "Nifty Realty": "^CNXREALTY",
     "Nifty Energy": "^CNXENERGY",
+    "Nifty Infra":  "^CNXINFRA",
+    "Nifty Consum": "^CNXCONSUM",
+    "Nifty Media":  "^CNXMEDIA",
+    "Nifty PSE":    "^CNXPSE",
 }
 
 CHART_PAIRS = {
@@ -87,7 +96,8 @@ CHART_PAIRS = {
     "Nifty vs Gold":         ("^NSEI","GC=F",    "Inverse","#ffd700"),
     "Nifty vs US 10Y Yield": ("^NSEI","^TNX",    "Inverse","#c084fc"),
     "Nifty vs DXY":          ("^NSEI","DX-Y.NYB","Inverse","#fb923c"),
-    "Nifty vs S&P 500":      ("^NSEI","^GSPC",   "Direct", "#34d399"),
+    "Nifty vs Nasdaq 100":   ("^NSEI","^NDX",    "Direct", "#38bdf8"),
+    "Nifty vs Copper":       ("^NSEI","HG=F",    "Direct", "#d97706"),
 }
 
 WB_INDICATORS = {
@@ -117,12 +127,16 @@ ALL_MACRO = [
     ("DII Net Flows",             "Direct",  "Moderate", "Counter-cyclical buffer via SIP inflows"),
     ("FDI Inflows",               "Direct",  "Moderate", "Long-term confidence; GDP and market expand together"),
     ("Gold Price (USD)",          "Inverse", "Moderate", "Safe-haven; risk-off = gold up, equities down"),
+    ("Silver Price (USD)",        "Direct",  "Moderate", "Industrial demand proxy; follows risk-on capital flows"),
+    ("Copper (Dr. Copper)",       "Direct",  "Moderate", "Leading indicator of global industrial/manufacturing health"),
     ("US Fed Funds Rate",         "Inverse", "Strong",   "Fed hike → EM outflows → Nifty sells off"),
     ("US Dollar Index (DXY)",     "Inverse", "Strong",   "Strong dollar → FII exits India → INR weakens"),
+    ("Nasdaq 100",                "Direct",  "Strong",   "Global tech/growth proxy; highly correlated to Nifty IT"),
+    ("Russell 2000",              "Direct",  "Moderate", "US Small-cap index; gauge of global speculative risk appetite"),
+    ("Bitcoin",                   "Direct",  "Moderate", "Ultimate liquidity proxy; signals global risk-on/risk-off sentiment"),
     ("Global PMI / US GDP",       "Direct",  "Moderate", "IT & export sectors track global demand cycle"),
     ("India VIX",                 "Inverse", "Strong",   "Fear index; VIX > 20 = market stress zone"),
     ("GST Collections",           "Direct",  "Moderate", "Proxy for domestic consumption activity"),
-    ("Unemployment Rate",         "Inverse", "Moderate", "High unemployment → weak consumption → lower EPS"),
     ("Corporate EPS Growth",      "Direct",  "Strong",   "Most direct driver: Nifty = EPS × P/E multiple"),
 ]
 
@@ -261,7 +275,7 @@ st.markdown("""
     🇮🇳 India Macro Intelligence Dashboard
   </h1>
   <p style="color:#8b949e;margin:6px 0 0;font-size:13px;">
-    Real-time tracker for 24 macro indicators that drive Indian equities
+    Real-time tracker for macro & liquidity indicators that drive Indian equities
     &nbsp;|&nbsp; Nifty 50 / BSE Sensex &nbsp;|&nbsp; Auto-refresh every 5 min
   </p>
 </div>
@@ -274,16 +288,15 @@ st.markdown('<div class="section-hdr">📊 Section 1 — Market Pulse (Live)</di
             unsafe_allow_html=True)
 
 t_items = list(MARKET_TICKERS.items())
-cols1 = st.columns(5)
-cols2 = st.columns(5)
+cols = st.columns(5) # Dynamic scaling
 for i, (name, (tick, unit, inv)) in enumerate(t_items):
     price, prev = get_price(tick)
     pct = pct_chg(price, prev)
     badge, _ = signal_badge(pct, inv)
     icon = badge[:2]
     delta = f"{pct:+.2f}%" if pct is not None else "N/A"
-    target_col = cols1[i % 5] if i < 5 else cols2[i % 5]
-    with target_col:
+    
+    with cols[i % 5]:
         st.metric(label=f"{icon} {name}", value=fmt_val(price, unit), delta=delta)
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -321,7 +334,7 @@ if show_sectors:
     st.markdown('<div class="section-hdr">🏭 Section 3 — NSE Sector Heatmap (Live)</div>',
                 unsafe_allow_html=True)
     sec_items = list(SECTOR_TICKERS.items())
-    s_cols = st.columns(4)
+    s_cols = st.columns(4) # Dynamic scaling
     for i, (sname, stick) in enumerate(sec_items):
         sp, sprev = get_price(stick)
         spct = pct_chg(sp, sprev)
@@ -423,7 +436,7 @@ if show_wb:
 #  SECTION 6 ─ COMPLETE MACRO REFERENCE TABLE
 # ═════════════════════════════════════════════════════════════════════════════
 if show_ref:
-    st.markdown('<div class="section-hdr">📋 Section 6 — Complete 24-Indicator Macro Reference</div>',
+    st.markdown('<div class="section-hdr">📋 Section 6 — Complete Macro Reference</div>',
                 unsafe_allow_html=True)
     df_ref = pd.DataFrame(ALL_MACRO,
                           columns=["Macro Indicator","Relation","Strength","Rationale"])
